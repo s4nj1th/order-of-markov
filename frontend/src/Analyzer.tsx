@@ -13,33 +13,6 @@ export default function Analyzer(): React.ReactElement {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchWithTimeout = async (
-    url: string,
-    options: RequestInit = {},
-    timeoutMs = 7000
-  ): Promise<Response> => {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      console.debug(`[fetchWithTimeout] starting request`, {
-        url,
-        options,
-        timeoutMs,
-      });
-      const resp = await fetch(url, { ...options, signal: controller.signal });
-      console.debug(`[fetchWithTimeout] received response`, {
-        url,
-        status: resp.status,
-      });
-      return resp;
-    } catch (err) {
-      console.error(`[fetchWithTimeout] request error`, { url, err });
-      throw err;
-    } finally {
-      clearTimeout(id);
-    }
-  };
-
   const analyzeProblem = async (
     problemText: string
   ): Promise<AnalysisResult> => {
@@ -62,15 +35,11 @@ export default function Analyzer(): React.ReactElement {
       const body = { problem: problemText };
       console.debug(`[analyzeProblem] POST`, { url, body });
 
-      const resp = await fetchWithTimeout(
-        url,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
-        8000
-      );
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
       console.debug(`[analyzeProblem] response status`, {
         status: resp.status,
