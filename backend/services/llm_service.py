@@ -41,15 +41,11 @@ Guidelines:
 - Order 4-5: Long memory (chess, complex strategy)"""
     
     async def _call_openrouter(self, prompt: str) -> str:
-        """Call OpenRouter API."""
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 "https://api.openrouter.ai/api/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://order-of-markov.vercel.app",
-                    "X-Title": "Order of Markov"
                 },
                 json={
                     "model": self.model,
