@@ -103,7 +103,7 @@ export default function Analyzer(): React.ReactElement {
       await new Promise((resolve) => setTimeout(resolve, 600));
 
       let order = NaN;
-      let justification = "";
+      let justification = "Error analyzing problem.";
       let confidence = 0;
 
       // const lowerProblem = problemText.toLowerCase();
@@ -176,10 +176,17 @@ export default function Analyzer(): React.ReactElement {
     }
   };
 
+  const isMac =
+    typeof navigator !== "undefined" &&
+    /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+
   const handleKeyPress = (
     e: React.KeyboardEvent<HTMLTextAreaElement>
   ): void => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    if (e.key !== "Enter") return;
+    const wantsMeta = isMac ? e.metaKey : false;
+    const wantsCtrl = isMac ? false : e.ctrlKey;
+    if (wantsMeta || wantsCtrl) {
       e.preventDefault();
       handleSubmit();
     }
@@ -199,7 +206,7 @@ export default function Analyzer(): React.ReactElement {
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+      <div className="bg-white rounded-xl border border-[#9994] p-6 mb-6">
         <label htmlFor="problem" className="block mb-2 font-semibold">
           Describe your problem
         </label>
@@ -254,7 +261,7 @@ export default function Analyzer(): React.ReactElement {
           )}
         </button>
         <p className="mt-2 text-center text-sm text-slate-500">
-          Press Ctrl+Enter to submit
+          Press {isMac ? "⌘" : "Ctrl"} + Enter to submit
         </p>
       </div>
 
@@ -268,22 +275,23 @@ export default function Analyzer(): React.ReactElement {
       )}
 
       {result && (
-        <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="bg-white rounded-xl border border-[#9994] p-6">
           <div className="flex items-center gap-3 mb-4">
             <h2 className="text-lg font-bold">Recommendation</h2>
           </div>
 
-          <div className="bg-sky-50 border border-sky-100 rounded-md p-4 mb-4">
-            <p className="text-blue-600 font-medium mb-1">Recommended Model</p>
-            <p className="text-3xl font-bold text-sky-900">
-              {result.order}
-              {result.order === 1
-                ? "st"
-                : result.order === 2
-                ? "nd"
-                : result.order === 3
-                ? "rd"
-                : "th"}
+          <div className="bg-sky-50 border border-blue-600/20 rounded-md p-4 mb-4">
+            <p className="text-3xl font-bold text-sky-900 text-center">
+              <span className="underline">{result.order}</span>
+              <sup>
+                {result.order === 1
+                  ? "st"
+                  : result.order === 2
+                  ? "nd"
+                  : result.order === 3
+                  ? "rd"
+                  : "th"}
+              </sup>
               -order Markov Model
             </p>
           </div>

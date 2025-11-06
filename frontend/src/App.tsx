@@ -12,6 +12,7 @@ export default function MarkovOrderMVP(): React.ReactElement {
 
       <main className="w-full sm:w-3/5 max-w-4xl px-4 py-10 items-center">
         <header className="flex flex-col items-center mb-8">
+          <img src="/favicon.png" alt="" className="w-35 sm:hidden" />
           <h1 className="text-4xl font-bold text-slate-800 mt-4">
             Order of Markov
           </h1>
@@ -34,7 +35,7 @@ export default function MarkovOrderMVP(): React.ReactElement {
         </footer>
       </main>
 
-      <div className="hidden sm:block w-1/5 max-w-[150px] items-end absolute bottom-0 right-5">
+      <div className="hidden sm:block w-1/5 max-w-[150px] items-end absolute bottom-10 right-[2%]">
         <img
           src="/ccru.gif"
           alt="logo"
