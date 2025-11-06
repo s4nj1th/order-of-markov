@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+.app-root {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+}
+.container {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 3rem 1rem;
+}
+.header-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.text-muted {
+  color: #64748b;
+  font-size: 1.125rem;
+}
+.card {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.08);
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+.result-card {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 12px rgba(2, 6, 23, 0.06);
+  padding: 1.5rem;
+}
+.badge-title {
+  color: #2563eb;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.order-number {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+.confidence-high {
+  color: #16a34a;
+  font-weight: 700;
+}
+.confidence-moderate {
+  color: #d97706;
+  font-weight: 700;
+}
+.confidence-low {
+  color: #ea580c;
+  font-weight: 700;
+}
