@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
+import "./index.css";
+import "./App.css";
 
 export interface AnalysisResult {
   order: number;
@@ -87,9 +89,9 @@ export default function Analyzer(): React.ReactElement {
   };
 
   const getConfidenceColor = (conf: number): string => {
-    if (conf >= 0.8) return "text-green-600";
-    if (conf >= 0.6) return "text-yellow-600";
-    return "text-orange-600";
+    if (conf >= 0.8) return "conf-high";
+    if (conf >= 0.6) return "conf-mod";
+    return "conf-low";
   };
 
   const getConfidenceLabel = (conf: number): string => {
@@ -100,7 +102,7 @@ export default function Analyzer(): React.ReactElement {
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-[#9994] p-6 mb-6">
+      <div className="bg-surface p-6 mb-6 text-muted">
         <label htmlFor="problem" className="block mb-2 font-semibold">
           Describe your problem
         </label>
@@ -110,17 +112,15 @@ export default function Analyzer(): React.ReactElement {
           onChange={(e) => setProblem(e.target.value)}
           onKeyDown={handleKeyPress}
           placeholder="E.g., I want to predict tomorrow's weather based on historical patterns..."
-          className="w-full h-32 p-3 border border-slate-200 rounded-md resize-none"
+          className="w-full h-32 p-3 input rounded-md resize-none text-text"
           disabled={loading}
         />
 
         <button
           onClick={handleSubmit}
           disabled={loading || !problem.trim()}
-          className={`mt-4 w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 font-semibold group ${
-            loading || !problem.trim()
-              ? "bg-slate-300 text-slate-700 cursor-not-allowed"
-              : "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+          className={`mt-4 w-full btn group ${
+            loading || !problem.trim() ? "btn-disabled" : "btn-primary"
           }`}
         >
           {loading ? (
@@ -154,28 +154,28 @@ export default function Analyzer(): React.ReactElement {
             </div>
           )}
         </button>
-        <p className="mt-2 text-center text-sm text-slate-500">
+        <p className="mt-2 text-center text-sm muted">
           Press {isMac ? "⌘" : "Ctrl"} + Enter to submit
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <div className="alert alert-error mb-6">
           <div className="flex gap-3 items-start">
-            <AlertCircle className="text-red-600 w-5 h-5" />
-            <p className="text-red-800">{error}</p>
+            <AlertCircle className="w-5 h-5" />
+            <p>{error}</p>
           </div>
         </div>
       )}
 
       {result && (
-        <div className="bg-white rounded-xl border border-[#9994] p-6">
+        <div className="card p-6">
           <div className="flex items-center gap-3 mb-4">
             <h2 className="text-lg font-bold">Recommendation</h2>
           </div>
 
-          <div className="bg-sky-50 border border-blue-600/20 rounded-md p-4 mb-4">
-            <p className="text-3xl font-bold text-sky-900 text-center">
+          <div className="result-hero mb-4">
+            <p className="hero-order">
               <span className="underline">{result.order}</span>
               <sup>
                 {result.order === 1
@@ -192,10 +192,16 @@ export default function Analyzer(): React.ReactElement {
 
           <div className="mb-4">
             <h3 className="mb-2 font-semibold">Justification</h3>
-            <p className="text-slate-600">{result.justification}</p>
+            <p className="muted">{result.justification}</p>
           </div>
 
-          <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+          <div
+            className="flex items-center justify-between border-t"
+            style={{
+              borderColor: "var(--color-border)",
+              paddingTop: "0.75rem",
+            }}
+          >
             <span className="font-semibold">Confidence Score</span>
             <div className="flex items-center gap-3">
               <span
