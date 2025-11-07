@@ -1,19 +1,17 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from dotenv import load_dotenv
+import httpx
 import os
+import json
 
-from services.llm_service import LLMService
-
+# Load environment variables from .env file
 load_dotenv()
 
-app = FastAPI(
-    title="Order of Markov API",
-    description="AI-powered Markov model order recommendation",
-    version="1.0.0"
-)
+app = FastAPI(title="Markov Order Analyzer")
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,116 +20,133 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-llm_service = LLMService()
+class AnalyzeRequest(BaseModel):
+    problem: str
 
+class AnalyzeResponse(BaseModel):
+    order: int
+    justification: str
+    confidence: float
 
-class ProblemRequest(BaseModel):
-    problem: str = Field(..., min_length=10, description="Problem description (minimum 10 characters)")
+@app.post("/api/analyze", response_model=AnalyzeResponse)
+async def analyze_markov_order(request: AnalyzeRequest):
+    """
+    Analyze the problem and determine the appropriate Markov model order.
+    """
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY not found in environment")
     
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "problem": "I want to predict weather patterns based on historical data"
-            }
-        }
+    # Construct the prompt for the LLM
+    prompt = f"""Analyze the following problem and determine the most appropriate order for a Markov model.
 
+Problem: {request.problem}
 
-class AnalysisResponse(BaseModel):
-    order: int = Field(..., ge=1, le=5, description="Recommended Markov model order (1-5)")
-    justification: str = Field(..., description="Explanation for the recommendation")
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score (0.0-1.0)")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "order": 3,
-                "justification": "Natural language generation benefits from higher-order context...",
-                "confidence": 0.85
-            }
-        }
+Respond ONLY with a JSON object in the following format (no additional text, preamble, or markdown):
+{{
+    "order": <integer from 1-5>,
+    "justification": "<brief explanation of why this order is appropriate>",
+    "confidence": <float between 0 and 1>
+}}
 
+Consider:
+- Order 1 (first-order): Current state depends only on the previous state
+- Order 2 (second-order): Current state depends on the previous 2 states
+- Higher orders: Current state depends on more historical states
 
-class HealthResponse(BaseModel):
-    status: str
-    version: str
+Choose the order that best balances model complexity with the problem's temporal dependencies."""
 
-
-@app.get("/", response_model=dict)
-async def root():
-    """Root endpoint with API information."""
-    return {
-        "message": "Order of Markov API",
-        "version": "1.0.0",
-        "docs": "/docs",
-        "health": "/api/health"
-    }
-
-
-@app.get("/api/health", response_model=HealthResponse)
-async def health_check():
-    """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "version": "1.0.0"
-    }
-
-
-@app.post("/api/analyze", response_model=AnalysisResponse)
-async def analyze_problem(request: ProblemRequest):
     try:
-        result = await llm_service.analyze_problem(request.problem)
-        
-        order = max(1, min(5, result.get("order", 2)))
-        confidence = max(0.0, min(1.0, result.get("confidence", 0.7)))
-        justification = result.get("justification", "Analysis completed.")
-        
-        return AnalysisResponse(
-            order=order,
-            justification=justification,
-            confidence=confidence
-        )
-        
-    except ValueError as e:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Failed to parse LLM response: {str(e)}"
-        )
-    except Exception as e:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "deepseek/deepseek-r1-0528-qwen3-8b:free",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "temperature": 0.3,
+                    "max_tokens": 500
+                }
+            )
+            
+            print(f"OpenRouter status code: {response.status_code}")
+            print(f"OpenRouter response: {response.text}")
+            
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"OpenRouter API error: {response.text}"
+                )
+            
+            result = response.json()
+            content = result["choices"][0]["message"]["content"]
+            
+            # Debug: print raw response
+            print(f"Raw LLM response: {content}")
+            
+            # Clean up the response (remove markdown code blocks if present)
+            content = content.strip()
+            
+            # DeepSeek R1 may include reasoning tags, extract JSON from them
+            if "<think>" in content:
+                # Remove thinking section
+                content = content.split("</think>")[-1].strip()
+            
+            # Try to find JSON object in the content
+            json_start = content.find("{")
+            json_end = content.rfind("}") + 1
+            
+            if json_start != -1 and json_end > json_start:
+                content = content[json_start:json_end]
+            else:
+                # Fallback: remove markdown code blocks
+                if content.startswith("```json"):
+                    content = content[7:]
+                if content.startswith("```"):
+                    content = content[3:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                content = content.strip()
+            
+            print(f"Extracted JSON: {content}")
+            
+            # Parse the JSON response
+            parsed = json.loads(content)
+            
+            # Validate and return
+            return AnalyzeResponse(
+                order=parsed["order"],
+                justification=parsed["justification"],
+                confidence=parsed["confidence"]
+            )
+            
+    except json.JSONDecodeError as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Analysis failed: {str(e)}"
+            detail=f"Failed to parse LLM response as JSON: {str(e)}"
+        )
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to connect to OpenRouter: {str(e)}"
+        )
+    except KeyError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected response format from LLM: {str(e)}"
         )
 
-# Test endpoint with hardcoded responses for development purposes
-# @app.post("/api/analyze/test", response_model=AnalysisResponse)
-# async def analyze_problem_test(request: ProblemRequest):
-#     problem_lower = request.problem.lower()
-    
-#     if any(word in problem_lower for word in ['weather', 'stock', 'time series']):
-#         return AnalysisResponse(
-#             order=2,
-#             justification="Weather and financial data often show dependencies on the previous two states. Recent conditions strongly influence the next state, making a 2nd-order model appropriate.",
-#             confidence=0.85
-#         )
-#     elif any(word in problem_lower for word in ['text', 'language', 'sentence']):
-#         return AnalysisResponse(
-#             order=3,
-#             justification="Natural language generation benefits from higher-order context. A 3rd-order model captures grammatical patterns effectively while remaining computationally feasible.",
-#             confidence=0.82
-#         )
-#     elif any(word in problem_lower for word in ['game', 'chess', 'strategy']):
-#         return AnalysisResponse(
-#             order=4,
-#             justification="Strategic games require deeper history to make informed predictions. A 4th-order model captures complex patterns and strategic dependencies.",
-#             confidence=0.78
-#         )
-#     else:
-#         return AnalysisResponse(
-#             order=2,
-#             justification="Based on the problem description, a 2nd-order model provides a good balance between capturing dependencies and computational efficiency.",
-#             confidence=0.70
-#         )
-
+@app.get("/")
+async def root():
+    return {"message": "Markov Order Analyzer API", "endpoint": "/api/analyze"}
 
 if __name__ == "__main__":
     import uvicorn
