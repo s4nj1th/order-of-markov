@@ -6,12 +6,10 @@ import httpx
 import os
 import json
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = FastAPI(title="Markov Order Analyzer")
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,14 +28,10 @@ class AnalyzeResponse(BaseModel):
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 async def analyze_markov_order(request: AnalyzeRequest):
-    """
-    Analyze the problem and determine the appropriate Markov model order.
-    """
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY not found in environment")
     
-    # Construct the prompt for the LLM
     prompt = f"""Analyze the following problem and determine the most appropriate order for a Markov model.
 
 Problem: {request.problem}
@@ -56,10 +50,11 @@ Consider:
 
 Choose the order that best balances model complexity with the problem's temporal dependencies."""
 
+    url = "https://openrouter.ai/api/v1/chat/completions"
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
+                url,
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
@@ -76,38 +71,58 @@ Choose the order that best balances model complexity with the problem's temporal
                     "max_tokens": 500
                 }
             )
-            
-            print(f"OpenRouter status code: {response.status_code}")
-            print(f"OpenRouter response: {response.text}")
-            
-            if response.status_code != 200:
+
+            status = response.status_code
+            text = response.text
+            print(f"OpenRouter URL: {url}")
+            print(f"OpenRouter status code: {status}")
+            print(f"OpenRouter response text: {text}")
+
+            if status != 200:
                 raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"OpenRouter API error: {response.text}"
+                    status_code=502,
+                    detail=(
+                        f"OpenRouter API returned non-200 status. url={url} status={status} "
+                        f"response={text}"
+                    )
                 )
-            
-            result = response.json()
-            content = result["choices"][0]["message"]["content"]
-            
-            # Debug: print raw response
+
+            try:
+                result = response.json()
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        f"Failed to decode OpenRouter JSON response. url={url} "
+                        f"status={status} error={type(e).__name__}:{str(e)} response_text={text}"
+                    )
+                )
+
+            try:
+                content = result["choices"][0]["message"]["content"]
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        f"OpenRouter response missing expected fields. url={url} "
+                        f"status={status} error={type(e).__name__}:{str(e)} result_keys={list(result.keys())} "
+                        f"response_text={text}"
+                    )
+                )
+
             print(f"Raw LLM response: {content}")
-            
-            # Clean up the response (remove markdown code blocks if present)
+
             content = content.strip()
-            
-            # DeepSeek R1 may include reasoning tags, extract JSON from them
+
             if "<think>" in content:
-                # Remove thinking section
                 content = content.split("</think>")[-1].strip()
-            
-            # Try to find JSON object in the content
+
             json_start = content.find("{")
             json_end = content.rfind("}") + 1
-            
+
             if json_start != -1 and json_end > json_start:
                 content = content[json_start:json_end]
             else:
-                # Fallback: remove markdown code blocks
                 if content.startswith("```json"):
                     content = content[7:]
                 if content.startswith("```"):
@@ -115,33 +130,50 @@ Choose the order that best balances model complexity with the problem's temporal
                 if content.endswith("```"):
                     content = content[:-3]
                 content = content.strip()
-            
+
             print(f"Extracted JSON: {content}")
-            
-            # Parse the JSON response
-            parsed = json.loads(content)
-            
-            # Validate and return
-            return AnalyzeResponse(
-                order=parsed["order"],
-                justification=parsed["justification"],
-                confidence=parsed["confidence"]
-            )
-            
-    except json.JSONDecodeError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to parse LLM response as JSON: {str(e)}"
-        )
+
+            try:
+                parsed = json.loads(content)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        f"Failed to parse JSON extracted from LLM content. url={url} "
+                        f"error={type(e).__name__}:{str(e)} extracted_text={content}"
+                    )
+                )
+
+            try:
+                return AnalyzeResponse(
+                    order=parsed["order"],
+                    justification=parsed["justification"],
+                    confidence=parsed["confidence"]
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        f"Parsed JSON missing expected keys. url={url} "
+                        f"error={type(e).__name__}:{str(e)} parsed_keys={list(parsed.keys()) if isinstance(parsed, dict) else type(parsed).__name__} "
+                        f"parsed_value={parsed}"
+                    )
+                )
+
     except httpx.RequestError as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to connect to OpenRouter: {str(e)}"
+            status_code=502,
+            detail=(
+                f"Network error while contacting OpenRouter. url={url} "
+                f"error_type={type(e).__name__} error={str(e)}"
+            )
         )
-    except KeyError as e:
+    except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Unexpected response format from LLM: {str(e)}"
+            detail=(
+                f"Unexpected error in analyze_markov_order. error_type={type(e).__name__} error={str(e)}"
+            )
         )
 
 @app.get("/")
