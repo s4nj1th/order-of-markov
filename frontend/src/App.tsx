@@ -6,7 +6,7 @@ import Analyzer from "./Analyzer";
 export default function MarkovOrderMVP(): React.ReactElement {
   return (
     <div className="min-h-screen bg-background text-text relative overflow-x-hidden flex flex-row items-center justify-center">
-      <div className="hidden sm:block w-1/5 max-w-[150px] items-start absolute top-0 left-5">
+      <div className="hidden sm:block w-1/5 max-w-[200px] items-start absolute top-0 left-5">
         <img src="/logo.png" alt="logo" className="w-full h-auto" />
       </div>
 
@@ -35,12 +35,8 @@ export default function MarkovOrderMVP(): React.ReactElement {
         </footer>
       </main>
 
-      <div className="hidden sm:block w-1/5 max-w-[150px] items-end absolute bottom-10 right-[2%]">
-        <img
-          src="/ccru.gif"
-          alt="logo"
-          className="w-full h-auto filter invert"
-        />
+      <div className="hidden sm:block w-1/5 max-w-[200px] items-end absolute bottom-10 right-5">
+        <img src="/ccru.svg" alt="logo" className="w-full h-auto" />
       </div>
     </div>
   );
