@@ -169,14 +169,14 @@ export default function Analyzer(): React.ReactElement {
       )}
 
       {result && (
-        <div className="card p-6">
+        <div className="p-6">
           <div className="flex items-center gap-3 mb-4">
             <h2 className="text-lg font-bold">Recommendation</h2>
           </div>
 
           <div className="result-hero mb-4">
             <p className="hero-order">
-              <span className="underline">{result.order}</span>
+              <span className="">{result.order}</span>
               <sup>
                 {result.order === 1
                   ? "st"
@@ -191,7 +191,7 @@ export default function Analyzer(): React.ReactElement {
           </div>
 
           <div className="mb-4">
-            <h3 className="mb-2 font-semibold">Justification</h3>
+            {/* <h3 className="mb-2 font-semibold">Justification</h3> */}
             <p className="muted">{result.justification}</p>
           </div>
 
