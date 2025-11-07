@@ -16,113 +16,34 @@ export default function Analyzer(): React.ReactElement {
   const analyzeProblem = async (
     problemText: string
   ): Promise<AnalysisResult> => {
-    const rawBase = (import.meta.env.VITE_API_BASE as string) || "";
-    let apiBase: string;
-    if (!rawBase) {
-      apiBase = "/api";
-    } else {
-      const trimmed = rawBase.trim().replace(/\/+$/g, "");
-      if (trimmed.startsWith("/")) {
-        apiBase = trimmed;
-      } else {
-        apiBase = /\/api($|\/)/.test(trimmed) ? trimmed : `${trimmed}/api`;
-      }
+    const apiBase =
+      (import.meta.env.VITE_API_BASE as string) || "http://localhost:8000";
+    const url = `${apiBase}/api/analyze`;
+
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ problem: problemText }),
+    });
+
+    if (!resp.ok) {
+      const errorData = await resp
+        .json()
+        .catch(() => ({ detail: "Unknown error" }));
+      throw new Error(errorData.detail || `API error ${resp.status}`);
     }
 
-    const url = `${apiBase.replace(/\/$/, "")}/analyze`;
+    const data = (await resp.json()) as AnalysisResult;
 
-    try {
-      const body = { problem: problemText };
-      console.debug(`[analyzeProblem] POST`, { url, body });
-
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      console.debug(`[analyzeProblem] response status`, {
-        status: resp.status,
-        url,
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => "<no body>");
-        console.error(`[analyzeProblem] API returned non-OK`, {
-          status: resp.status,
-          bodyText: text,
-        });
-        throw new Error(`API error ${resp.status}`);
-      }
-
-      const data = (await resp.json()) as AnalysisResult;
-      console.debug(`[analyzeProblem] parsed response`, { data });
-
-      if (
-        typeof data.order === "number" &&
-        typeof data.justification === "string" &&
-        typeof data.confidence === "number"
-      ) {
-        return data;
-      }
-      console.error(`[analyzeProblem] invalid response shape`, { data });
-      throw new Error("Invalid response shape from API");
-    } catch (e) {
-      console.error("API call failed, falling back to local mock:", e);
-      await new Promise((resolve) => setTimeout(resolve, 600));
-
-      let order = NaN;
-      let justification = "Error analyzing problem.";
-      let confidence = 0;
-
-      // const lowerProblem = problemText.toLowerCase();
-      // let order = 2;
-      // let justification =
-      //   "Based on the problem description, a 2nd-order model provides a good balance between capturing dependencies and computational efficiency. This order is suitable for most sequential prediction tasks.";
-      // let confidence = 0.7;
-
-      // if (
-      //   lowerProblem.includes("weather") ||
-      //   lowerProblem.includes("stock") ||
-      //   lowerProblem.includes("time series")
-      // ) {
-      //   order = 2;
-      //   justification =
-      //     "Weather and financial data often show dependencies on the previous two states. Recent conditions strongly influence the next state, making a 2nd-order model appropriate for capturing these short-term patterns.";
-      //   confidence = 0.85;
-      // } else if (
-      //   lowerProblem.includes("text") ||
-      //   lowerProblem.includes("language") ||
-      //   lowerProblem.includes("sentence")
-      // ) {
-      //   order = 3;
-      //   justification =
-      //     "Natural language generation benefits from higher-order context. A 3rd-order model captures grammatical patterns and word sequences effectively while remaining computationally feasible.";
-      //   confidence = 0.82;
-      // } else if (
-      //   lowerProblem.includes("game") ||
-      //   lowerProblem.includes("chess") ||
-      //   lowerProblem.includes("strategy")
-      // ) {
-      //   order = 4;
-      //   justification =
-      //     "Strategic games require deeper history to make informed predictions. A 4th-order model captures complex patterns and strategic dependencies that span multiple moves.";
-      //   confidence = 0.78;
-      // } else if (
-      //   lowerProblem.includes("simple") ||
-      //   lowerProblem.includes("binary") ||
-      //   lowerProblem.includes("coin")
-      // ) {
-      //   order = 1;
-      //   justification =
-      //     "Simple binary or memoryless processes are well-modeled with 1st-order Markov chains. The next state depends only on the current state, reducing complexity without sacrificing accuracy.";
-      //   confidence = 0.92;
-      // }
-
-      const fallback = { order, justification, confidence };
-      console.debug(`[analyzeProblem] returning fallback result`, { fallback });
-      return fallback;
+    if (
+      typeof data.order !== "number" ||
+      typeof data.justification !== "string" ||
+      typeof data.confidence !== "number"
+    ) {
+      throw new Error("Invalid response format from API");
     }
+
+    return data;
   };
 
   const handleSubmit = async (): Promise<void> => {
@@ -130,7 +51,7 @@ export default function Analyzer(): React.ReactElement {
       setError("Please describe your problem");
       return;
     }
-    console.debug(`[handleSubmit] submitting problem`, { problem });
+
     setLoading(true);
     setError(null);
     setResult(null);
@@ -139,7 +60,11 @@ export default function Analyzer(): React.ReactElement {
       const data = await analyzeProblem(problem);
       setResult(data);
     } catch (err) {
-      setError("Failed to analyze problem. Please try again.");
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to analyze problem. Please try again.";
+      setError(message);
     } finally {
       setLoading(false);
     }

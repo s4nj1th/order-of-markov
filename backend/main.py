@@ -8,7 +8,7 @@ import json
 
 load_dotenv()
 
-app = FastAPI(title="Markov Order Analyzer")
+app = FastAPI(title="Order of Markov")
 
 app.add_middleware(
     CORSMiddleware,
@@ -50,11 +50,10 @@ Consider:
 
 Choose the order that best balances model complexity with the problem's temporal dependencies."""
 
-    url = "https://openrouter.ai/api/v1/chat/completions"
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                url,
+                "https://openrouter.ai/api/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
@@ -68,58 +67,45 @@ Choose the order that best balances model complexity with the problem's temporal
                         }
                     ],
                     "temperature": 0.3,
-                    "max_tokens": 500
+                    "max_tokens": 2000
                 }
             )
-
-            status = response.status_code
-            text = response.text
-            print(f"OpenRouter URL: {url}")
-            print(f"OpenRouter status code: {status}")
-            print(f"OpenRouter response text: {text}")
-
-            if status != 200:
+            
+            print(f"OpenRouter status code: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"OpenRouter error response: {response.text}")
                 raise HTTPException(
-                    status_code=502,
-                    detail=(
-                        f"OpenRouter API returned non-200 status. url={url} status={status} "
-                        f"response={text}"
-                    )
+                    status_code=response.status_code,
+                    detail=f"OpenRouter API error: {response.text}"
                 )
-
-            try:
-                result = response.json()
-            except Exception as e:
+            
+            result = response.json()
+            print(f"Full API response: {result}")
+            
+            if not result.get("choices") or len(result["choices"]) == 0:
+                print("ERROR: No choices in response")
                 raise HTTPException(
                     status_code=500,
-                    detail=(
-                        f"Failed to decode OpenRouter JSON response. url={url} "
-                        f"status={status} error={type(e).__name__}:{str(e)} response_text={text}"
-                    )
+                    detail=f"No choices in API response: {result}"
                 )
-
-            try:
-                content = result["choices"][0]["message"]["content"]
-            except Exception as e:
-                raise HTTPException(
-                    status_code=500,
-                    detail=(
-                        f"OpenRouter response missing expected fields. url={url} "
-                        f"status={status} error={type(e).__name__}:{str(e)} result_keys={list(result.keys())} "
-                        f"response_text={text}"
-                    )
-                )
-
-            print(f"Raw LLM response: {content}")
-
+            
+            finish_reason = result["choices"][0].get("finish_reason")
+            if finish_reason == "length":
+                print("WARNING: Response was truncated due to max_tokens limit")
+            
+            content = result["choices"][0]["message"]["content"]
+            
+            print(f"Raw LLM response: '{content}'")
+            
             content = content.strip()
-
+            
             if "<think>" in content:
                 content = content.split("</think>")[-1].strip()
-
+            
             json_start = content.find("{")
             json_end = content.rfind("}") + 1
-
+            
             if json_start != -1 and json_end > json_start:
                 content = content[json_start:json_end]
             else:
@@ -130,55 +116,36 @@ Choose the order that best balances model complexity with the problem's temporal
                 if content.endswith("```"):
                     content = content[:-3]
                 content = content.strip()
-
+            
             print(f"Extracted JSON: {content}")
-
-            try:
-                parsed = json.loads(content)
-            except Exception as e:
-                raise HTTPException(
-                    status_code=500,
-                    detail=(
-                        f"Failed to parse JSON extracted from LLM content. url={url} "
-                        f"error={type(e).__name__}:{str(e)} extracted_text={content}"
-                    )
-                )
-
-            try:
-                return AnalyzeResponse(
-                    order=parsed["order"],
-                    justification=parsed["justification"],
-                    confidence=parsed["confidence"]
-                )
-            except Exception as e:
-                raise HTTPException(
-                    status_code=500,
-                    detail=(
-                        f"Parsed JSON missing expected keys. url={url} "
-                        f"error={type(e).__name__}:{str(e)} parsed_keys={list(parsed.keys()) if isinstance(parsed, dict) else type(parsed).__name__} "
-                        f"parsed_value={parsed}"
-                    )
-                )
-
-    except httpx.RequestError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                f"Network error while contacting OpenRouter. url={url} "
-                f"error_type={type(e).__name__} error={str(e)}"
+            
+            parsed = json.loads(content)
+            
+            return AnalyzeResponse(
+                order=parsed["order"],
+                justification=parsed["justification"],
+                confidence=parsed["confidence"]
             )
-        )
-    except Exception as e:
+            
+    except json.JSONDecodeError as e:
         raise HTTPException(
             status_code=500,
-            detail=(
-                f"Unexpected error in analyze_markov_order. error_type={type(e).__name__} error={str(e)}"
-            )
+            detail=f"Failed to parse LLM response as JSON: {str(e)}"
+        )
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to connect to OpenRouter: {str(e)}"
+        )
+    except KeyError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected response format from LLM: {str(e)}"
         )
 
 @app.get("/")
 async def root():
-    return {"message": "Markov Order Analyzer API", "endpoint": "/api/analyze"}
+    return {"message": "Order of Markov API", "endpoint": "/api/analyze"}
 
 if __name__ == "__main__":
     import uvicorn
