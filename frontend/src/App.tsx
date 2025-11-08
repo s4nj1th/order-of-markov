@@ -7,8 +7,12 @@ import ThemeToggle from "./ThemeToggle";
 export default function MarkovOrderMVP(): React.ReactElement {
   return (
     <div className="min-h-screen bg-background text-text relative overflow-x-hidden flex flex-row items-center justify-center">
-      <div className="hidden sm:block w-1/5 max-w-[200px] items-start absolute top-0 left-5">
-        <img src="/logo.png" alt="logo" className="w-full h-auto" />
+      <div className="w-0 xl:w-1/5 max-w-[200px] items-start absolute top-0 left-5">
+        <img
+          src="/logo.png"
+          alt="logo"
+          className="w-full h-auto drop-shadow-xl drop-shadow-[#8888]"
+        />
       </div>
 
       <main className="w-full sm:w-3/5 max-w-4xl px-4 py-10 items-center">
@@ -16,7 +20,7 @@ export default function MarkovOrderMVP(): React.ReactElement {
           <img
             src="/favicon.png"
             alt=""
-            className="w-35 block md:hidden mt-4"
+            className="xl:w-0 w-50 mt-4 drop-shadow-xl drop-shadow-[#8888]"
           />
           <div className="w-full flex items-center justify-between">
             <h1 className="text-4xl font-bold text-text mt-4">
@@ -43,8 +47,12 @@ export default function MarkovOrderMVP(): React.ReactElement {
         </footer>
       </main>
 
-      <div className="hidden md:block w-1/5 max-w-[200px] items-end absolute bottom-10 right-5">
-        <img src="/ccru.svg" alt="logo" className="w-full h-auto" />
+      <div className="w-0 xl:w-1/5 max-w-[200px] items-end absolute bottom-10 right-5">
+        <img
+          src="/ccru.svg"
+          alt="logo"
+          className="w-full h-auto ccru-img drop-shadow-xl drop-shadow-[#8888]"
+        />
       </div>
     </div>
   );

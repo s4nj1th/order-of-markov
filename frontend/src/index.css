@@ -35,6 +35,10 @@ html.dark {
   --color-hero-text: #bfdbfe;
 }
 
+* {
+  transition: all 200ms ease;
+}
+
 body {
   background-color: var(--color-background);
   color: var(--color-text);
@@ -161,4 +165,12 @@ button {
 }
 .conf-low {
   color: var(--color-error);
+}
+
+.ccru-img {
+  filter: none;
+}
+
+html.dark .ccru-img {
+  filter: invert(1);
 }

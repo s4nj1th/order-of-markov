@@ -112,7 +112,7 @@ export default function Analyzer(): React.ReactElement {
           onChange={(e) => setProblem(e.target.value)}
           onKeyDown={handleKeyPress}
           placeholder="E.g., I want to predict tomorrow's weather based on historical patterns..."
-          className="w-full h-32 p-3 input rounded-md resize-none text-text"
+          className="w-full h-32 p-3 input rounded-md resize-none text"
           disabled={loading}
         />
 
